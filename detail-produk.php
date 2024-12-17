@@ -1,66 +1,119 @@
 <?php 
-    require "koneksi.php";
+    require "session.php"; 
+    require "../koneksi.php";
 
-    $nama =htmlspecialchars($_GET["nama"]);
-    $queryProduk = mysqli_query($con,"SELECT * FROM produk WHERE nama='$nama'");
-    $produk = mysqli_fetch_array($queryProduk);
+    $id = htmlspecialchars($_GET['p']); 
 
-    $queryProdukTerkait = mysqli_query($con,"SELECT * FROM produk WHERE kategori_id='$produk[kategori_id]' AND id!='$produk[id]' LIMIT 4");
+    $query = mysqli_query($con, "SELECT a.*, b.nama AS nama_kategori 
+        FROM produk a 
+        JOIN kategori b ON a.kategori_id = b.id 
+        WHERE a.id = '$id'");
+
+    if (!$query || mysqli_num_rows($query) == 0) {
+        die('<div class="alert alert-danger mt-3" role="alert">Data produk tidak ditemukan!</div>');
+    }
+
+    $data = mysqli_fetch_array($query);
+
+    $queryKategori = mysqli_query($con, "SELECT * FROM kategori WHERE id != '$data[kategori_id]'");
+
+    if (!$queryKategori) {
+        die('<div class="alert alert-danger mt-3" role="alert">Gagal mendapatkan data kategori!</div>');
+    }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Toko Online | Detail Produk</title>
-    <link rel="stylesheet" href="bootstrap-5.3.3-dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="fontawesome/css/fontawesome.min.css">
-    <link rel="stylesheet" href="css/style.css">
+    <title>Detail Produk</title>
+    <link rel="stylesheet" href="../bootstrap-5.3.3-dist/css/bootstrap.min.css">
 </head>
+<style>
+    form div {
+        margin-bottom: 10px;
+    }
+</style>
 <body>
     <?php require "navbar.php"; ?>
+    <div class="container mt-5">
+        <h2>Detail Produk</h2>
+        <div class="col-12 col-md-6 mb-5">
+            <form action="" method="post" enctype="multipart/form-data">
+                <div>
+                    <label for="nama">Nama</label>
+                    <input type="text" name="nama" id="nama" value="<?php echo htmlspecialchars($data['nama']); ?>" class="form-control" autocomplete="off">
+                </div>
+                <div>
+                    <label for="kategori">Kategori</label>
+                    <select name="kategori" id="kategori" class="form-control">
+                        <option value="<?php echo $data['kategori_id']; ?>"><?php echo $data['nama_kategori']; ?></option>
+                        <?php while ($dataKategori = mysqli_fetch_array($queryKategori)) { ?>
+                            <option value="<?php echo $dataKategori['id']; ?>"><?php echo $dataKategori['Nama']; ?></option>
+                        <?php } ?>
+                    </select>
+                </div>
+                <div>
+                    <label for="harga">Harga</label>
+                    <input type="number" class="form-control" value="<?php echo $data['harga']; ?>" name="harga" required>
+                </div>
+                <div>
+                    <label for="currentFoto">Foto Produk</label>
+                    <img src="../image/<?php echo $data['foto']; ?>" alt="" width="200px">
+                </div>
+                <div>
+                    <label for="foto">Foto</label>
+                    <input type="file" name="foto" id="foto" class="form-control">
+                </div>
+                <div>
+                    <label for="detail">Detail</label>
+                    <textarea name="detail" id="detail" class="form-control" cols="30"><?php echo htmlspecialchars($data['detail']); ?></textarea>
+                </div>
+                <div>
+                    <label for="ketersediaan_stok">Ketersediaan Stok</label>
+                    <select name="ketersediaan_stok" id="ketersediaan_stok" class="form-control">
+                        <option value="<?php echo $data['ketersediaan_stok']; ?>"><?php echo $data['ketersediaan_stok']; ?></option>
+                        <?php if ($data['ketersediaan_stok'] == 'tersedia') { ?>
+                            <option value="habis">Habis</option>
+                        <?php } else { ?>
+                            <option value="tersedia">Tersedia</option>
+                        <?php } ?>
+                    </select>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-primary" name="simpan">Simpan</button>
+                    <button type="submit" class="btn btn-danger" name="hapus" onclick="return confirm('Apakah Anda yakin ingin menghapus produk ini?')">Hapus</button>
+                </div>
+            </form>
 
-<!-- detail produk -->
-    <div class="container-fluid py-5">
-        <div class="container">
-            <div class="row">
-                <div class="col-lg-5">
-                    <img src="image/<?php echo $produk['foto']; ?>" class="w-100" alt="">
-                </div>
-                <div class="col-lg-6 offset-lg-1">
-                    <h1><?php echo $produk['nama']; ?></h1>
-                    <p class="fs-5">
-                    <?php echo $produk['detail']; ?>
-                    </p>
-                    <p class="text-harga">
-                        <b>Rp <?php echo number_format($produk['harga'], 0, ',', '.'); ?></b>
-                        <p class="fs-5">Status ketersediaan : <strong><?php echo $produk['ketersediaan_stok']; ?></strong></p>
-                    </p>
-                </div>
-            </div>
+            <?php
+                // Logika untuk simpan perubahan
+                if (isset($_POST['simpan'])) {
+                    // Simpan perubahan produk (sama seperti kode Anda sebelumnya)
+                }
+
+                // Logika untuk hapus produk
+                if (isset($_POST['hapus'])) {
+                    $fotoPath = "../image/" . $data['foto'];
+
+                    // Hapus file foto jika ada
+                    if (file_exists($fotoPath)) {
+                        unlink($fotoPath);
+                    }
+
+                    // Hapus data produk dari database
+                    $queryHapus = mysqli_query($con, "DELETE FROM produk WHERE id = '$id'");
+
+                    if ($queryHapus) {
+                        echo '<div class="alert alert-success mt-3">Produk berhasil dihapus!</div>';
+                        echo '<meta http-equiv="refresh" content="2; url=produk.php">';
+                    } else {
+                        echo '<div class="alert alert-danger mt-3">Gagal menghapus produk: ' . mysqli_error($con) . '</div>';
+                    }
+                }
+            ?>
         </div>
     </div>
-
-    <div class="container-fluid py-5 warna2">
-        <div class="container">
-            <h2 class="text-center text-warna1 mb-5">Produk Terkait</h2>
-
-            <div class="row">
-                <?php while($data=mysqli_fetch_array($queryProdukTerkait)){ ?>
-                <div class="Col-md-6 col-lg-3 mb-3">
-                    <a href="detail-produk.php?nama=<?php echo $data['nama']; ?>">
-                        <img src="image/<?php echo $data['foto']; ?>" class="img-fluid img-thumbnail produk-terkait-image" alt="">
-                    </a>
-                </div>
-                <?php } ?>
-            </div>
-        </div>
-    </div>
-
-    <?php require "footer.php"; ?>
-
-    <script src="bootstrap-5.3.3-dist/js/bootstrap.min.js"></script>
-    <script src="fontawesome/js/all.min.js"></script>
+    <script src="../bootstrap-5.3.3-dist/js/bootstrap.min.js"></script>
 </body>
 </html>
